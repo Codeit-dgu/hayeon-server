@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  id            Int      @id @default(autoincrement())
+  nickname      String
+  title         String
+  content       String
+  postPassword  String
+  imageUrl      String
+  location      String
+  moment        DateTime
+  createAt        DateTime
+  isPublic      Boolean
+  likeCount     Int      @default(0) 
+  commentCount  Int      @default(0)
+  tags          Tag[]    @relation("PostTags")
+  groupId       Int
+  group         Group     @relation("GroupPosts", fields: [groupId], references: [id])
+}
+
+model Tag {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+  posts Post[]  @relation("PostTags")
+}
+
+model Group {
+  id            Int      @id @default(autoincrement())
+  name          String
+  groupPassword String
+  posts         Post[]   @relation("GroupPosts")
+}
