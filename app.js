@@ -120,6 +120,43 @@ app.delete('/api/posts/:postId', async (req, res) => {
 });
 
 // 게시글 상세 조회
+app.get('/api/posts/:postId', async (req, res) => {
+  const { postId } = req.params;
+
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: parseInt(postId) },
+      include: { tags: true }
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const formattedPost = {
+      id: post.id,
+      groupId: post.groupId,
+      nickname: post.nickname,
+      title: post.title,
+      content: post.content,
+      imageUrl: post.imageUrl,
+      tags: post.tags.map(tag => tag.name), 
+      location: post.location,
+      moment: post.moment.toISOString().split('T')[0], 
+      isPublic: post.isPublic,
+      likeCount: post.likeCount,
+      commentCount: post.commentCount,
+      createdAt: post.createAt.toISOString() 
+    };
+
+    res.json(formattedPost);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 게시글 목록 조회
 app.get('/api/groups/:groupId/posts', async (req, res) => {
   const { groupId } = req.params;
   const { keyword, isPublic, sortBy, page = 1, pageSize = 10 } = req.query;
