@@ -5,7 +5,7 @@ const app = express();
 
 app.use(express.json());
 
-// 포스트 작성
+// 게시글 작성
 app.post('/api/groups/:groupId/posts', async (req, res) => {
   const { groupId } = req.params;
   const {
@@ -15,7 +15,7 @@ app.post('/api/groups/:groupId/posts', async (req, res) => {
     postPassword,
     groupPassword,
     imageUrl,
-    tags, 
+    tags,
     location,
     moment,
     isPublic
@@ -34,18 +34,10 @@ app.post('/api/groups/:groupId/posts', async (req, res) => {
       return res.status(403).json({ error: 'Invalid group password' });
     }
 
+  
     const tagList = tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+    const newTags = tagList.map(tag => ({ name: tag }));
 
-    const existingTags = await prisma.tag.findMany({
-      where: {
-        name: { in: tagList }
-      }
-    });
-
-    const existingTagNames = existingTags.map(tag => tag.name);
-    const newTags = tagList
-      .filter(tag => !existingTagNames.includes(tag))
-      .map(tag => ({ name: tag }));
 
     const newPost = await prisma.post.create({
       data: {
@@ -62,14 +54,15 @@ app.post('/api/groups/:groupId/posts', async (req, res) => {
           connect: { id: parseInt(groupId) }
         },
         tags: {
-          create: newTags
+          create: newTags 
         }
       },
       include: {
-        tags: true 
+        tags: true
       }
     });
 
+   
     res.json({
       id: newPost.id,
       groupId: newPost.groupId,
@@ -90,6 +83,7 @@ app.post('/api/groups/:groupId/posts', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 // 포스트 삭제
 app.delete('/api/posts/:postId', async (req, res) => {
@@ -124,42 +118,100 @@ app.delete('/api/posts/:postId', async (req, res) => {
   }
 });
 
-// 포스트 상세 조회
-app.get('/api/posts/:postId', async (req, res) => {
-  const { postId } = req.params;
+// 게시글 상세 조회
+app.get('/api/groups/:groupId/posts', async (req, res) => {
+  const { groupId } = req.params;
+  const { keyword, isPublic, sortBy, page = 1, pageSize = 10 } = req.query;
+
+  let orderBy = {
+    createAt: 'desc',
+  };
+
+  if (sortBy === 'mostCommented') {
+    orderBy = {
+      commentCount: 'desc',
+    };
+  } else if (sortBy === 'mostLiked') {
+    orderBy = {
+      likeCount: 'desc',
+    };
+  }
+
+  const take = parseInt(pageSize);
+  const skip = (parseInt(page) - 1) * take;
 
   try {
-    const post = await prisma.post.findUnique({
-      where: { id: parseInt(postId) },
-      include: { tags: true }
+    const [posts, totalItemCount] = await Promise.all([
+      prisma.post.findMany({
+        where: {
+          groupId: parseInt(groupId),
+          isPublic: isPublic === 'true',
+          OR: [
+            {
+              title: {
+                contains: keyword || ""
+              }
+            },
+            {
+              content: {
+                contains: keyword || ""
+              }
+            }
+          ],
+        },
+        orderBy,
+        include: {
+          tags: true,
+        },
+        take,
+        skip,
+      }),
+      prisma.post.count({
+        where: {
+          groupId: parseInt(groupId),
+          isPublic: isPublic === 'true',
+          OR: [
+            {
+              title: {
+                contains: keyword || ""
+              }
+            },
+            {
+              content: {
+                contains: keyword || ""
+              }
+            }
+          ],
+        }
+      })
+    ]);
+
+    const totalPages = Math.ceil(totalItemCount / take);
+    
+    res.status(200).json({
+      currentPage: parseInt(page),
+      totalPages: totalPages,
+      totalItemCount: totalItemCount,
+      data: posts.map(post => ({
+        id: post.id,
+        nickname: post.nickname,
+        title: post.title,
+        imageUrl: post.imageUrl,
+        tags: post.tags.map(tag => tag.name),
+        location: post.location,
+        moment: post.moment,
+        isPublic: post.isPublic,
+        likeCount: post.likeCount,
+        commentCount: post.commentCount,
+        createdAt: post.createdAt, 
+      })),
     });
-
-    if (!post) {
-      return res.status(404).json({ error: 'Post not found' });
-    }
-
-    const formattedPost = {
-      id: post.id,
-      groupId: post.groupId,
-      nickname: post.nickname,
-      title: post.title,
-      content: post.content,
-      imageUrl: post.imageUrl,
-      tags: post.tags.map(tag => tag.name), 
-      location: post.location,
-      moment: post.moment.toISOString().split('T')[0], 
-      isPublic: post.isPublic,
-      likeCount: post.likeCount,
-      commentCount: post.commentCount,
-      createdAt: post.createAt.toISOString() 
-    };
-
-    res.json(formattedPost);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: '게시글을 가져오는 중 오류가 발생했습니다.' });
   }
 });
+
 
 
 
