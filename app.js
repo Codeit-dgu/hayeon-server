@@ -5,8 +5,6 @@ const app = express();
 
 app.use(express.json());
 
-
-//포스트 작성
 // 포스트 작성
 app.post('/api/groups/:groupId/posts', async (req, res) => {
   const { groupId } = req.params;
@@ -124,7 +122,45 @@ app.delete('/api/posts/:postId', async (req, res) => {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
-});햐
+});
+
+// 포스트 상세 조회
+app.get('/api/posts/:postId', async (req, res) => {
+  const { postId } = req.params;
+
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: parseInt(postId) },
+      include: { tags: true }
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const formattedPost = {
+      id: post.id,
+      groupId: post.groupId,
+      nickname: post.nickname,
+      title: post.title,
+      content: post.content,
+      imageUrl: post.imageUrl,
+      tags: post.tags.map(tag => tag.name), 
+      location: post.location,
+      moment: post.moment.toISOString().split('T')[0], 
+      isPublic: post.isPublic,
+      likeCount: post.likeCount,
+      commentCount: post.commentCount,
+      createdAt: post.createAt.toISOString() 
+    };
+
+    res.json(formattedPost);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 
 const PORT = process.env.PORT || 3000;
