@@ -93,6 +93,38 @@ app.post('/api/groups/:groupId/posts', async (req, res) => {
   }
 });
 
+// 포스트 삭제
+app.delete('/api/posts/:postId', async (req, res) => {
+  const { postId } = req.params;
+  const { postPassword } = req.body; 
+
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: parseInt(postId) }
+    });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    if (post.postPassword !== postPassword) {
+      return res.status(403).json({ error: 'Invalid post password' });
+    }
+    await prisma.tag.deleteMany({
+      where: { postId: parseInt(postId) }
+    });
+
+    await prisma.post.delete({
+      where: { id: parseInt(postId) }
+    });
+
+    res.status(200).send(); 
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});햐
 
 
 const PORT = process.env.PORT || 3000;
