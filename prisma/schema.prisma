@@ -16,7 +16,7 @@ model Post {
   imageUrl      String
   location      String
   moment        DateTime
-  createAt        DateTime
+  createAt       DateTime
   isPublic      Boolean
   likeCount     Int      @default(0) 
   commentCount  Int      @default(0)
@@ -26,14 +26,18 @@ model Post {
 }
 
 model Tag {
-  id    Int     @id @default(autoincrement())
-  name  String  @unique
-  posts Post[]  @relation("PostTags")
+  id      Int     @id @default(autoincrement())
+  name    String  @unique
+  postId  Int
+  post    Post   @relation("PostTags", fields: [postId], references: [id])
 }
 
 model Group {
   id            Int      @id @default(autoincrement())
   name          String
+  description   String
+  groupImageUrl String
   groupPassword String
+  isGroupPublic Boolean
   posts         Post[]   @relation("GroupPosts")
 }
